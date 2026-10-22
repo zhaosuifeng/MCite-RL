@@ -74,7 +74,7 @@ bash mytrain.sh
 
 The default is a single-GPU, one-step smoke run. Set `TOTAL_TRAINING_STEPS` and `TOTAL_EPOCHS` for longer training, or append `--cfg job` to inspect the configuration.
 
-The default reward is `0.40 × EM + 0.35 × IoU + 0.15 × NDCG + 0.10 × IoGT`. The original mode requires search, bbox, answer, and citation tags. The shared prompt is in `prompts/wiki_visa_sft_gemini.txt`.
+The default reward is `0.40 × EM + 0.35 × IoU + 0.15 × NDCG + 0.10 × IoGT`. The original mode requires search, bbox, answer, and citation tags. 
 
 ## Acknowledgments
 
