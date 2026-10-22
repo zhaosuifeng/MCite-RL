@@ -2,7 +2,7 @@
 
 Workflow: prepare Python environments and models → prepare data and retrieval indexes → start the retrieval API → start the model API for inference, or launch training directly.
 
-Run all commands from the project root. Model weights, full datasets, and retrieval indexes must be prepared separately. `data/examples` contains format examples only.
+Run all commands from the project root. Model weights, full datasets, and retrieval indexes must be prepared separately. Dataset paths are configurable; Wiki-VISA and FinRAGBench are examples. `data/examples` contains format examples only.
 
 ## 1. Configure the Environments
 
@@ -35,13 +35,14 @@ export INFER_PY=/path/to/infer-env/bin/python
 export MODEL_PATH=/path/to/Qwen2.5-VL-3B-Instruct
 export EMBED_MODEL_PATH=/path/to/colqwen2-v0.1-merged
 
-export TRAIN_FILE="$PWD/data/wiki-visa/train.parquet"
-export VAL_FILE="$PWD/data/wiki-visa/val.parquet"
-export TEST_FILE="$PWD/data/wiki-visa/test.parquet"
-export TRAIN_IMAGES="$PWD/data/wiki-visa/train-images"
-export TEST_IMAGES="$PWD/data/wiki-visa/test-images"
-export TRAIN_INDEX="$PWD/corpus/wiki-visa/train"
-export TEST_INDEX="$PWD/corpus/wiki-visa/test"
+export DATASET=my-dataset  # For example: wiki-visa or finragbench
+export TRAIN_FILE="$PWD/data/$DATASET/train.parquet"
+export VAL_FILE="$PWD/data/$DATASET/val.parquet"
+export TEST_FILE="$PWD/data/$DATASET/test.parquet"
+export TRAIN_IMAGES="$PWD/data/$DATASET/train-images"
+export TEST_IMAGES="$PWD/data/$DATASET/test-images"
+export TRAIN_INDEX="$PWD/corpus/$DATASET/train"
+export TEST_INDEX="$PWD/corpus/$DATASET/test"
 
 export NO_PROXY=127.0.0.1,localhost
 export no_proxy=127.0.0.1,localhost
@@ -51,42 +52,55 @@ export no_proxy=127.0.0.1,localhost
 
 ## 2. Prepare the Data
 
-### Using Prepared Data
+### Use Your Own Dataset
 
-Point `TRAIN_FILE`, `VAL_FILE`, and `TEST_FILE` to existing parquet files, and set the image and index directories accordingly. If matching indexes are already available, proceed to Section 4.
+Set `DATASET` to a directory label of your choice and configure `TRAIN_FILE`, `VAL_FILE`, `TEST_FILE`, the image directories, and the retrieval index directories. The label selects paths; it does not automatically convert annotations or register a new reward function. If prepared data and matching indexes are available, proceed to Section 4.
 
-Training and validation parquet files must contain `prompt`, `data_source`, `reward_model`, and `extra_info`. See `data/examples/test.jsonl` for the inference format. Split training and validation data by page ID, and keep test data out of training.
+Normalize your data to the following fields:
 
-### Preparing Raw Wiki-VISA Parquet Files
+| Split | Fields |
+| --- | --- |
+| Training / validation | `prompt` (chat messages), `data_source`, `reward_model.ground_truth`, and `extra_info` |
+| Inference | `uid`, `query` (the input instruction and question), `reference_answer`, `reference_page`, and `bounding_box` |
+| Citation labels | Reference page IDs and boxes in original-image pixel coordinates; keep page IDs consistent with retrieved image names |
 
-Download the dataset:
+The combined reward uses `extra_info.reference_page`, `bounding_box` or `ground_truth_citation`, and optional `file_name` for legacy PDF-page IDs. Set `data_source` to a registered task identifier; add a dispatch entry in `verl/utils/reward_score/__init__.py` or configure `custom_reward_function.path` and `custom_reward_function.name` for a new task. The current Wiki-VISA loader refreshes its first-user prompt automatically; prepare other datasets with the shared template explicitly.
 
-```bash
-bash scripts/download_dataset.sh MrLight/wiki-visa \
-  --dataset --local-dir wiki-visa
-```
+Split training and validation data by source document/page to prevent overlap. Keep test data out of training. See the JSONL files under `data/examples` for concrete schemas.
 
-Create training and validation partitions from the original training shards and export their page images:
+### For Example: Wiki-VISA
+
+If your source data follows the original Wiki-VISA parquet schema, use the supplied converter. Point the input patterns to your local shards; downloading Wiki-VISA is not required for other datasets.
 
 ```bash
 for partition in train val; do
   "$INFER_PY" scripts/prepare_wiki_visa.py \
-    --input 'wiki-visa/data/train-*.parquet' \
+    --input '/path/to/raw-wiki-visa/train-*.parquet' \
     --format verl --partition "$partition" --validation_fraction 0.1 \
     --image_root "$TRAIN_IMAGES" \
-    --output "data/wiki-visa/$partition.parquet"
+    --output "$PWD/data/$DATASET/$partition.parquet"
 done
-```
 
-Prepare the test data and images:
-
-```bash
 "$INFER_PY" scripts/prepare_wiki_visa.py \
-  --input 'wiki-visa/data/test-*.parquet' \
+  --input '/path/to/raw-wiki-visa/test-*.parquet' \
   --image_root "$TEST_IMAGES" --output "$TEST_FILE"
 ```
 
-The script stops if the output file already exists. Add `--overwrite` when you intend to replace it. To restrict samples to pages covered by an existing index, add `--index_dir /path/to/index`.
+The converter stops if an output already exists; add `--overwrite` to replace it deliberately. Add `--index_dir /path/to/index` to retain only samples covered by an existing index.
+
+### For Example: FinRAGBench
+
+Use your local FinRAGBench page images and annotations. `search_engine/ingestion_finragbench.py` supports multiple image directories and recursively scans their contents. It writes indexes into subdirectories named after each input directory (for example, `en` and `ch`).
+
+```bash
+"$INFER_PY" -m search_engine.ingestion_finragbench \
+  --input_dirs /path/to/finragbench/en /path/to/finragbench/ch \
+  --output_dir "$TEST_INDEX" \
+  --embed_model_name "$EMBED_MODEL_PATH" \
+  --total_files 6000 --seed 42 --workers 1
+```
+
+`--total_files` limits the number of previously unindexed images sampled in this invocation. Set it to cover the corpus you intend to index. The metadata API below accepts an annotation JSON array with fields such as `query-id`, `query`, `answer`, `img_paths`, `from_pages`, and `bboxes`. Convert the QA samples separately into the training/inference schemas above; the ingestion script builds image vectors, not QA parquet files. Convert normalized FinRAGBench boxes to pixel coordinates before using the shared geometry reward/evaluator.
 
 ## 3. Build Retrieval Indexes
 
@@ -139,6 +153,21 @@ Training retrieval API, port `8003`:
   --host 127.0.0.1 --port 8003
 ```
 
+### FinRAGBench Retrieval API
+
+For the FinRAGBench index created above, start the dataset-specific API instead of the generic service:
+
+```bash
+"$INFER_PY" -m search_engine.search_engine_api_finragbench \
+  --metadata /path/to/finragbench/annotations.json \
+  --image_root /path/to/finragbench \
+  --index_dir "$TEST_INDEX" \
+  --embed_model_name "$EMBED_MODEL_PATH" \
+  --host 127.0.0.1 --port 8005
+```
+
+This service loads nested `.node` indexes and resolves images recursively. Use `http://127.0.0.1:8005/search` for inference `--search_url` or training `SEARCH_URL`, with an index appropriate to that split. Its health endpoint is `http://127.0.0.1:8005/health`.
+
 Check the service from another terminal. Wait for `status: ok` before proceeding:
 
 ```bash
@@ -173,7 +202,7 @@ Start with five samples:
   --base_url http://127.0.0.1:8001/v1 --model_name vrag_model \
   --search_url http://127.0.0.1:8002/search \
   --image_root "$TEST_IMAGES" \
-  --output_file outputs/wiki-visa/predictions.jsonl \
+  --output_file outputs/$DATASET/predictions.jsonl \
   --max_samples 5 --max_iterations 5 \
   --max_new_tokens 2048 --temperature 0 --workers_num 1
 ```
@@ -184,12 +213,14 @@ To use an existing model service, set `--base_url` and `--model_name` to its end
 
 ### Evaluate Predictions
 
+The following evaluator expects the normalized page-ID and pixel-coordinate schema described in Section 2. The script and option retain their historical Wiki-VISA names. For other datasets, normalize annotations to that schema or use a dataset-specific evaluator.
+
 ```bash
 "$INFER_PY" scripts/evaluate_wiki_visa.py \
-  --inference_file outputs/wiki-visa/predictions.jsonl \
+  --inference_file outputs/$DATASET/predictions.jsonl \
   --reference_image_root "$TEST_IMAGES" \
   --wiki_visa_parquet_root "$(dirname "$TEST_FILE")" \
-  --output_file outputs/wiki-visa/metrics.json
+  --output_file outputs/$DATASET/metrics.json
 ```
 
 ## 6. Launch Training
@@ -244,7 +275,7 @@ Keep the model and training configuration compatible with the checkpoint. Set `T
 
 ## 7. Prompt and Reward
 
-Training and inference load the same first-user instruction from `prompts/wiki_visa_sft_gemini.txt`. When loading existing Wiki-VISA parquet files, the instruction is refreshed in memory using the question. Normal retrieval and crop observations contain only the image.
+The shared first-user instruction is stored in `prompts/wiki_visa_sft_gemini.txt`. Inference uses it for normalized questions; the Wiki-VISA training loader also refreshes existing parquet instructions in memory. Prepare custom training datasets with the same template to keep training and inference aligned. Normal retrieval and crop observations contain only the image.
 
 The default reward mode in `mytrain.sh` is `search_answer_citation_bbox_uniform`:
 
@@ -282,3 +313,7 @@ If the `tests` directory is present, run the CPU checks in the training environm
 ```bash
 "$TRAIN_PY" -m pytest tests -q
 ```
+
+## Code Reference
+
+Our implementation references [VRAG-RL](https://github.com/Alibaba-NLP/VRAG/tree/main/VRAG-RL) from Alibaba-NLP/VRAG. We thank the authors for making their code available. Existing upstream copyright and license notices are retained in the corresponding source files.
