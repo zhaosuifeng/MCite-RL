@@ -1,0 +1,65 @@
+# Initial integration configuration. A successful single step is not a full training run.
+defaults:
+  - ppo_trainer
+  - _self_
+
+data:
+  train_files: data/wiki-visa/train.parquet
+  val_files: data/wiki-visa/val.parquet
+  train_batch_size: 2
+  max_prompt_length: 4096
+  max_response_length: 2048
+  truncation: error
+
+actor_rollout_ref:
+  model:
+    path: models/policy
+    enable_gradient_checkpointing: true
+    use_remove_padding: false
+  actor:
+    ppo_mini_batch_size: 2
+    ppo_micro_batch_size_per_gpu: 1
+    use_torch_compile: false
+    use_kl_loss: true
+    kl_loss_coef: 0.001
+    fsdp_config:
+      param_offload: true
+      optimizer_offload: true
+  ref:
+    log_prob_micro_batch_size_per_gpu: 1
+    fsdp_config:
+      param_offload: true
+  rollout:
+    tensor_model_parallel_size: 1
+    log_prob_micro_batch_size_per_gpu: 1
+    gpu_memory_utilization: 0.35
+    max_num_batched_tokens: 8192
+    n: 1
+    n_agent: 2
+    temperature: 0.8
+    enable_chunked_prefill: false
+
+algorithm:
+  adv_estimator: grpo
+  kl_ctrl:
+    kl_coef: 0.0
+reward_model:
+  reward_manager: rm
+  rm_workers_num: 1
+  rm_key: EMPTY
+trainer:
+  nnodes: 1
+  n_gpus_per_node: 1
+  total_epochs: 1
+  total_training_steps: 1
+  project_name: mcite-wiki-visa
+  experiment_name: grpo-smoke
+  logger: [console]
+  save_freq: 1
+  test_freq: -1
+  val_before_train: false
+  resume_mode: disable
+  default_local_dir: checkpoints/wiki-visa/grpo-smoke
+retriever:
+  url: http://127.0.0.1:8002/search
+max_turns: 3

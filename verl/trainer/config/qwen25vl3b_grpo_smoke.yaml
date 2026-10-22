@@ -1,0 +1,32 @@
+# Single A800, one optimizer step. This is a runtime integration test.
+defaults:
+  - wiki_visa_grpo
+  - _self_
+
+data:
+  max_prompt_length: 4096
+  max_response_length: 512
+
+actor_rollout_ref:
+  model:
+    path: Qwen2.5-VL-3B-Instruct
+  actor:
+    ppo_mini_batch_size: 4
+    optim:
+      foreach: false
+  rollout:
+    max_num_seqs: 4
+    max_num_batched_tokens: 4608
+    gpu_memory_utilization: 0.30
+    limit_mm_per_prompt:
+      image: 3
+    mm_processor_kwargs:
+      max_pixels: 1204224
+      min_pixels: 602112
+
+trainer:
+  experiment_name: qwen25vl3b-grpo-smoke
+  default_local_dir: checkpoints/wiki-visa/qwen25vl3b-grpo-smoke
+
+retriever:
+  url: http://127.0.0.1:8003/search

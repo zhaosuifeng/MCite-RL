@@ -1,0 +1,17 @@
+# Local resources and generated artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hydra/
+/envs/agent-*
+/envs/wheels/
+/data/wiki-visa/
+/corpus
+/models
+/wiki-visa
+/checkpoints/
+/outputs/
+*.safetensors
+*.pt
+*.pth
+*.node
