@@ -141,7 +141,7 @@ class TaskRunner:
 
         reward_manager_name = config.reward_model.get("reward_manager", "naive")
 
-        assert reward_manager_name in ['rm'], f"vrag does not support reward manager {reward_manager_name}"
+        assert reward_manager_name in ['rm'], f"mcite does not support reward manager {reward_manager_name}"
 
         if reward_manager_name == 'naive':
             from verl.workers.reward_manager import NaiveRewardManager

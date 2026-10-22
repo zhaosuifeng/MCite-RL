@@ -63,7 +63,7 @@ case "$command_name" in
         run "$TRAIN_PY" scripts/check_wiki_visa.py --stage model --model "$MODEL_PATH"
         # vLLM is installed in agent-train, not agent-inference. Keep it in this environment.
         run "$TRAIN_PY" -m vllm.entrypoints.openai.api_server \
-            --model "$MODEL_PATH" --served-model-name vrag_model \
+            --model "$MODEL_PATH" --served-model-name mcite_model \
             --host 127.0.0.1 --port 8001 --tensor-parallel-size 1 \
             --dtype bfloat16 --max-model-len 16384 --max-num-seqs 1 --gpu-memory-utilization 0.70 \
             --limit-mm-per-prompt 'image=8' --enforce-eager "$@"
@@ -71,7 +71,7 @@ case "$command_name" in
     infer)
         run "$INFER_PY" scripts/inference_wiki_visa.py \
             --data_file data/wiki-visa/test.parquet --base_url "$MODEL_URL" \
-            --model_name vrag_model --search_url "$SEARCH_URL" \
+            --model_name mcite_model --search_url "$SEARCH_URL" \
             --image_root data/wiki-visa/images \
             --output_file outputs/wiki-visa/predictions.jsonl \
             --max_iterations 5 --workers_num 1 "$@"

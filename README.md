@@ -46,12 +46,12 @@ Start the model API in a separate terminal with the environment variables above:
 bash scripts/wiki_visa.sh model --gpu-memory-utilization 0.55
 ```
 
-Then run multi-turn inference:
+Then run multi-turn inference (Wiki-VISA example):
 
 ```bash
 "$INFER_PY" scripts/inference_wiki_visa.py \
   --data_file /path/to/test.parquet \
-  --base_url http://127.0.0.1:8001/v1 --model_name vrag_model \
+  --base_url http://127.0.0.1:8001/v1 --model_name mcite_model \
   --search_url http://127.0.0.1:8002/search \
   --image_root /path/to/images \
   --output_file outputs/predictions.jsonl \

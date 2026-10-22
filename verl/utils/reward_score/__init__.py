@@ -38,11 +38,11 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from . import geo3k
         res = geo3k.compute_score(solution_str, ground_truth)
     elif data_source in ['rag','slidevqa_test', 'mmlongdoc', 'vidoseek']:
-        from . import vrag
-        res = vrag.compute_format_reward_only(solution_str, ground_truth, extra_info)
+        from . import mcite
+        res = mcite.compute_format_reward_only(solution_str, ground_truth, extra_info)
     elif data_source in ['wiki-visa', 'wiki_visa']:
-        from . import vrag
-        res = vrag.compute_answer_acc(solution_str, ground_truth, extra_info)
+        from . import mcite
+        res = mcite.compute_answer_acc(solution_str, ground_truth, extra_info)
     else:
         raise NotImplementedError
 

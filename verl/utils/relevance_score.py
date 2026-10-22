@@ -5,7 +5,7 @@ import requests
 import io
 import ast
 from PIL import Image, ImageDraw
-from verl.utils.reward_score import vrag
+from verl.utils.reward_score import mcite
 
 def extract_bbox_and_think(response_str):
     """
@@ -153,9 +153,9 @@ def evaluate_relevance(response_str, extra_info, rm_config):
     print(f"[Relevance Debug] retrievaled_images count: {len(retrievaled_images)}")
     # print(f"[Relevance Debug] crop_history: {crop_history}")
 
-    # Use vrag utils to map bbox to original image
+    # Use mcite utils to map bbox to original image
     try:
-        crop_chain = vrag.build_crop_chain_from_extra_info(retrievaled_images, crop_history)
+        crop_chain = mcite.build_crop_chain_from_extra_info(retrievaled_images, crop_history)
         
         # Identify the target image (last search result in the chain that is valid)
         # The crop chain logic maps coordinates to the 'last_search_step'.
@@ -169,9 +169,9 @@ def evaluate_relevance(response_str, extra_info, rm_config):
         print(f"[Relevance Debug] Original image path: {original_image_path}")
         
         # Convert bbox
-        # NOTE: vrag.convert_crop_coords_to_search_image expects 'citation_coords' but we pass 'bbox'.
+        # NOTE: mcite.convert_crop_coords_to_search_image expects 'citation_coords' but we pass 'bbox'.
         # The logic is the same: mapping from current view to original view.
-        original_bbox = vrag.convert_crop_coords_to_search_image(bbox, crop_chain)
+        original_bbox = mcite.convert_crop_coords_to_search_image(bbox, crop_chain)
         print(f"[Relevance Debug] Converted original_bbox: {original_bbox}")
         
         if not original_bbox:

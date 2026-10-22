@@ -19,7 +19,7 @@ import os
 from typing import List, Dict, Any, Optional, Tuple
 from PIL import Image
 
-# 缩放参数（与训练时generation.py和推理时inference_vrag_20251129.py一致）
+# 缩放参数（与训练时generation.py和推理时inference_wiki_visa.py一致）
 MAX_PIXELS = 1536 * 28 * 28  # 1,204,416
 MIN_PIXELS = 768 * 28 * 28   # 602,208
 

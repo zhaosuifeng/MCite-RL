@@ -467,11 +467,11 @@ class LLMGenerationManager:
         retrievaled_images = self.retrievaled_images[sample_idx] if sample_idx < len(self.retrievaled_images) else []
         crop_history = self.crop_history[sample_idx] if sample_idx < len(self.crop_history) else []
         
-        # 使用与vrag.py一致的函数构建裁剪链和转换坐标
-        from verl.utils.reward_score.vrag import (
+        # 使用与mcite.py一致的函数构建裁剪链和转换坐标
+        from verl.utils.reward_score.mcite import (
             build_crop_chain_from_extra_info, 
             convert_crop_coords_to_search_image,
-            calculate_iou as vrag_calculate_iou
+            calculate_iou as mcite_calculate_iou
         )
         crop_chain = build_crop_chain_from_extra_info(retrievaled_images, crop_history)
         
@@ -497,7 +497,7 @@ class LLMGenerationManager:
             
             if ground_truth_citation and isinstance(ground_truth_citation, list) and len(ground_truth_citation) == 4:
                 if len(converted_citation) == 4:
-                    citation_iou = vrag_calculate_iou(converted_citation, ground_truth_citation)
+                    citation_iou = mcite_calculate_iou(converted_citation, ground_truth_citation)
                     result['citation_iou'] = citation_iou
                     # 添加调试信息（仅在IoU较低时打印）
                     if citation_iou < 0.5:
@@ -547,7 +547,7 @@ class LLMGenerationManager:
         next_obs_str = []
         multi_modal_data = []
         multi_modal_inputs = []
-        mm_debug = os.environ.get("VRAG_MM_DEBUG", "0").lower() in ("1", "true", "yes", "y")
+        mm_debug = os.environ.get("MCITE_MM_DEBUG", "0").lower() in ("1", "true", "yes", "y")
         merge_length = self.processor.image_processor.merge_size**2
         # print(self.retrievaled_images)
         for idx, obs_item in enumerate(next_obs):
@@ -639,7 +639,7 @@ class LLMGenerationManager:
                     # otherwise later model forward can break. Downgrade to text-only observation.
                     if ('pixel_values' not in image_inputs) or ('image_grid_thw' not in image_inputs):
                         if mm_debug:
-                            print(f"[VRAG_MM_DEBUG] missing keys from image_processor at idx={idx}: keys={list(getattr(image_inputs, 'data', {}).keys())}")
+                            print(f"[MCITE_MM_DEBUG] missing keys from image_processor at idx={idx}: keys={list(getattr(image_inputs, 'data', {}).keys())}")
                         next_obs_str.append('\n<|im_start|>user\n[Warning] Image processing failed; continuing without vision input.\n<|im_end|>\n<|im_start|>assistant\n')
                         multi_modal_data.append({'image': []})
                         multi_modal_inputs.append(BatchFeature(dict()))
@@ -687,7 +687,7 @@ class LLMGenerationManager:
                 # Strict multimodal contract: if pixel_values missing, we must NOT emit vision tokens.
                 if ('pixel_values' not in image_inputs) or ('image_grid_thw' not in image_inputs):
                     if mm_debug:
-                        print(f"[VRAG_MM_DEBUG] missing keys from image_processor at idx={idx}: keys={list(getattr(image_inputs, 'data', {}).keys())}")
+                        print(f"[MCITE_MM_DEBUG] missing keys from image_processor at idx={idx}: keys={list(getattr(image_inputs, 'data', {}).keys())}")
                     next_obs_str.append('\n<|im_start|>user\n[Warning] Retrieved images but image processing failed; continuing without vision input.\n<|im_end|>\n<|im_start|>assistant\n')
                     multi_modal_data.append({'image': []})
                     multi_modal_inputs.append(BatchFeature(dict()))
@@ -714,7 +714,7 @@ class LLMGenerationManager:
         return next_obs_ids, next_obs_str, multi_modal_data, multi_modal_inputs
     
     def _concat_multi_modal_data(self, rollings, next_obs_multi_modal_data:list, next_obs_multi_modal_inputs:list):
-        mm_debug = os.environ.get("VRAG_MM_DEBUG", "0").lower() in ("1", "true", "yes", "y")
+        mm_debug = os.environ.get("MCITE_MM_DEBUG", "0").lower() in ("1", "true", "yes", "y")
 
         def _has_mm_keys(x) -> bool:
             try:
@@ -736,7 +736,7 @@ class LLMGenerationManager:
                     images = []
                 if images and (not _has_mm_keys(item)):
                     if mm_debug:
-                        print(f"[VRAG_MM_DEBUG] init mm mismatch at idx={idx}: images={len(images)} but missing pixel_values; dropping images")
+                        print(f"[MCITE_MM_DEBUG] init mm mismatch at idx={idx}: images={len(images)} but missing pixel_values; dropping images")
                     rollings.non_tensor_batch['multi_modal_data'][idx]['image'] = []
                     rollings.non_tensor_batch['multi_modal_inputs'][idx] = BatchFeature(dict())
                 else:
@@ -751,7 +751,7 @@ class LLMGenerationManager:
                     next_inputs = next_obs_multi_modal_inputs[idx] if idx < len(next_obs_multi_modal_inputs) else None
                     if (next_inputs is None) or (not _has_mm_keys(next_inputs)):
                         if mm_debug:
-                            print(f"[VRAG_MM_DEBUG] concat mm mismatch at idx={idx}: images={len(images)} but missing pixel_values; skipping")
+                            print(f"[MCITE_MM_DEBUG] concat mm mismatch at idx={idx}: images={len(images)} but missing pixel_values; skipping")
                         continue
 
                     cur_inputs = rollings.non_tensor_batch['multi_modal_inputs'][idx]

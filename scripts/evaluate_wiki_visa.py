@@ -15,15 +15,15 @@ import importlib.util
 
 # Reuse the exact reward implementation without importing VERL's training runtime.
 # Evaluating JSONL on a CPU machine must not require DataProto, Ray or TensorDict.
-_metric_path = PROJECT_ROOT / "verl/utils/reward_score/vrag.py"
-_metric_spec = importlib.util.spec_from_file_location("mcite_vrag_metrics", _metric_path)
+_metric_path = PROJECT_ROOT / "verl/utils/reward_score/mcite.py"
+_metric_spec = importlib.util.spec_from_file_location("mcite_metrics", _metric_path)
 if _metric_spec is None or _metric_spec.loader is None:
     raise ImportError(f"Cannot load reward metrics: {_metric_path}")
-vrag = importlib.util.module_from_spec(_metric_spec)
-_metric_spec.loader.exec_module(vrag)
-normalize_answer = vrag.normalize_answer
-get_answer_from_predict_str = vrag.get_answer_from_predict_str
-remove_text_between_tags = vrag.remove_text_between_tags
+mcite = importlib.util.module_from_spec(_metric_spec)
+_metric_spec.loader.exec_module(mcite)
+normalize_answer = mcite.normalize_answer
+get_answer_from_predict_str = mcite.get_answer_from_predict_str
+remove_text_between_tags = mcite.remove_text_between_tags
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from PIL import Image
@@ -487,11 +487,11 @@ def convert_crop_coords_to_search_image(citation_coords: List[int], crop_chain: 
     """
     将citation坐标从裁剪坐标系转换到最后一次检索图像坐标系（原始尺寸）
     
-    转换流程（根据inference_vrag_20251129.py的实际流程）：
+    转换流程（根据inference_wiki_visa.py的实际流程）：
     1. citation坐标是相对于最后一次裁剪并缩放后的图像（模型看到的图像）
     2. 需要反向转换：裁剪后缩放图像 -> 裁剪后原始图像 -> 上一级缩放图像 -> 上一级原始图像 -> ... -> 检索图像原始尺寸
     
-    在inference_vrag_20251129.py中的流程：
+    在inference_wiki_visa.py中的流程：
     - 检索图像（原始）-> process_image缩放 -> 模型看到缩放后的图像
     - 模型在缩放后的图像上生成bbox（相对于缩放后的图像）
     - 将bbox从缩放后的图像映射回原始图像，在原始图像上裁剪
@@ -538,7 +538,7 @@ def convert_crop_coords_to_search_image(citation_coords: List[int], crop_chain: 
         
         # 步骤1: 将坐标从裁剪后缩放图像（模型看到的）转换到裁剪后原始图像（保存的图像）
         # 关键修正：保存的裁剪图像是从原始图像裁剪出来的（原始尺寸），不是从缩放后的图像裁剪出来的
-        # 与推理代码一致：inference_vrag_20251129.py中保存的是从raw_image裁剪出来的图像（原始尺寸）
+        # 与推理代码一致：inference_wiki_visa.py中保存的是从raw_image裁剪出来的图像（原始尺寸）
         cropped_image_path = step.get('result_image')
         if not cropped_image_path or not os.path.exists(cropped_image_path):
             return None
@@ -752,14 +752,14 @@ def evaluate_sample(
         if retrievaled_images:
             all_images = list(all_images) + [{"type": "search_result", "path": retrievaled_images[-1]}]
 
-    # 4. 使用 vrag.evaluate_search_correctness 进行评测
-    # 构造符合 vrag 接口的 extra_info
-    # vrag 期望 extra_info 包含 'reference_page' (list/str/ndarray) 和 'file_name' (optional)
+    # 4. 使用 mcite.evaluate_search_correctness 进行评测
+    # 构造符合 mcite 接口的 extra_info
+    # mcite 期望 extra_info 包含 'reference_page' (list/str/ndarray) 和 'file_name' (optional)
     reference_page = sample.get('reference_page', [])
     eval_extra_info = {
         'reference_page': reference_page
     }
-    search_correct = vrag.evaluate_search_correctness(eval_extra_info, retrievaled_images)
+    search_correct = mcite.evaluate_search_correctness(eval_extra_info, retrievaled_images)
     search_input_correct = False
     reference_ids = _reference_ids(reference_page)
     search_input_id = _last_search_result_id(all_images)
@@ -801,7 +801,7 @@ def evaluate_sample(
     all_responses = sample.get('all_responses', [])
     for response_info in reversed(all_responses):
         response = response_info.get('response', '')
-        # 与 vrag.compute_answer_acc 对齐：移除用户段后，从最后一个 </answer> 回溯提取 <answer>
+        # 与 mcite.compute_answer_acc 对齐：移除用户段后，从最后一个 </answer> 回溯提取 <answer>
         cleaned = remove_text_between_tags(response)
         ans = get_answer_from_predict_str(cleaned)
         if ans is not None:
@@ -871,8 +871,8 @@ def evaluate_sample(
             final_answer = (ans.strip() if ans is not None else a.strip())
             final_response_raw = a
 
-    # 使用 vrag.evaluate_answer_correctness 复核答案准确率
-    # 注意：我们需要传入包含 <answer> 标签的原始预测字符串给 vrag 函数，因为它内部会再次提取
+    # 使用 mcite.evaluate_answer_correctness 复核答案准确率
+    # 注意：我们需要传入包含 <answer> 标签的原始预测字符串给 mcite 函数，因为它内部会再次提取
     # 但我们已经手动提取了 final_answer，为了复用逻辑，我们构造一个模拟的 predict_str
     # 或者，如果 final_answer 已经提取出来了，我们可以直接使用 normalize_answer 进行比较，这正是 evaluate_inference.py 已经做的
 
@@ -914,9 +914,9 @@ def evaluate_sample(
         'valid_for_evaluation': False
     }
 
-    # 答案EM（严格对齐 vrag.compute_answer_acc，全集口径，没答出即错误）
-    # 这里的逻辑与 vrag.compute_answer_acc 基本一致：
-    # 1. vrag.compute_answer_acc: remove_text_between_tags -> get_answer_from_predict_str -> normalize -> compare
+    # 答案EM（严格对齐 mcite.compute_answer_acc，全集口径，没答出即错误）
+    # 这里的逻辑与 mcite.compute_answer_acc 基本一致：
+    # 1. mcite.compute_answer_acc: remove_text_between_tags -> get_answer_from_predict_str -> normalize -> compare
     # 2. 这里: remove_text_between_tags -> get_answer_from_predict_str (上面已做) -> normalize -> compare
     if reference_answer:
         if final_answer is not None:
@@ -924,7 +924,7 @@ def evaluate_sample(
             pred_norm = normalize_answer(final_answer)
             result['answer_exact_correct'] = (ref_norm == pred_norm)
             # 兼容原有包含匹配统计（轻量规范化）
-            # vrag.evaluate_answer_correctness 也是这样做的
+            # mcite.evaluate_answer_correctness 也是这样做的
             ref_clean = re.sub(r'\s+', ' ', reference_answer.lower().strip())
             pred_clean = re.sub(r'\s+', ' ', final_answer.lower().strip())
             result['answer_containment_correct'] = ref_clean in pred_clean

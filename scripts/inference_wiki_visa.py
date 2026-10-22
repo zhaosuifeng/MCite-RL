@@ -1268,7 +1268,7 @@ def main():
                        help='vLLM API服务的基础URL（例如：http://localhost:8001/v1）')
     parser.add_argument('--api_key', type=str, default="EMPTY",
                        help='API密钥（vLLM服务可能不需要，但需要提供）')
-    parser.add_argument('--model_name', type=str, default='vrag_model',
+    parser.add_argument('--model_name', type=str, default='mcite_model',
                        help='模型名称（如果为None则使用服务默认模型）')
     parser.add_argument('--output_file', type=str, default="outputs/wiki-visa/predictions.jsonl", help='输出结果文件路径（JSONL格式）')
     parser.add_argument('--max_new_tokens', type=int, default=2048, help='最大生成token数')

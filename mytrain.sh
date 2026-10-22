@@ -9,7 +9,7 @@ export REFUSAL_JUDGE_ENABLED="${REFUSAL_JUDGE_ENABLED:-0}"
 export REFUSAL_METRICS_ENABLED="${REFUSAL_METRICS_ENABLED:-0}"
 
 # -----------------------------
-# Minimal VRAG PPO launch script
+# Minimal MCITE PPO launch script
 # -----------------------------
 # Edit the variables below as needed.
 
@@ -79,7 +79,7 @@ search_url="${SEARCH_URL:-http://127.0.0.1:8003/search}"
 
 max_turns="${MAX_TURNS:-2}"
 timestamp=$(date +%Y%m%d_%H%M%S)
-project_name="vrag"
+project_name="mcite"
 
 # Resume training support
 reward_mode="${REWARD_COMBINATION_MODE:-search_answer_citation_bbox_uniform}"
@@ -148,7 +148,7 @@ if [ -n "$resume_checkpoint_dir" ] || [ -n "$resume_from_step_dir" ]; then
         experiment_name="$resume_experiment_name"
         echo "[INFO] Using original experiment_name for wandb: $experiment_name"
     else
-        experiment_name="VRAG_SFT_w_crop_${n_gpus}GPU_${max_turns}turns_${n_agent}agents_${reward_mode}_${timestamp}"
+        experiment_name="MCITE_SFT_w_crop_${n_gpus}GPU_${max_turns}turns_${n_agent}agents_${reward_mode}_${timestamp}"
         echo "[WARN] No RESUME_EXPERIMENT_NAME provided. Wandb may create a new run name."
         echo "[WARN] To continue wandb plotting, set RESUME_EXPERIMENT_NAME to the original experiment name"
     fi
@@ -156,7 +156,7 @@ else
     # New training
     save_dir_name="${reward_mode}_${timestamp}"
     default_local_dir="checkpoints/${project_name}/${save_dir_name}"
-    experiment_name="VRAG_SFT_w_crop_${n_gpus}GPU_${max_turns}turns_${n_agent}agents_${reward_mode}_${timestamp}"
+    experiment_name="MCITE_SFT_w_crop_${n_gpus}GPU_${max_turns}turns_${n_agent}agents_${reward_mode}_${timestamp}"
     resume_mode="disable"
 fi
 

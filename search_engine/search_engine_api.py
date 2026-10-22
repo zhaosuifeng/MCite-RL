@@ -68,7 +68,7 @@ def create_app(index_dir: str | Path, image_root: str | Path,
                     raise HTTPException(status_code=409, detail=f"Index/image mismatch: no image for {image_id}")
                 items.append({"idx": rank, "image_id": image_id, "image_file": relative_path(path)})
             results.append(items)
-        # Keep the existing bare-list response used by vrag_agent and VERL.
+        # Keep the existing bare-list response used by mcite_agent and VERL.
         return results
 
     return app

@@ -51,7 +51,7 @@ from verl.utils.tracking import ValidationGenerationsLogger
 from torch.utils.data import RandomSampler, SequentialSampler
 from torchdata.stateful_dataloader import StatefulDataLoader
 import re
-from vrag_agent.generation import LLMGenerationManager, GenerationConfig
+from mcite_agent.generation import LLMGenerationManager, GenerationConfig
 
 WorkerType = Type[Worker]
 
@@ -1028,7 +1028,7 @@ class RayPPOTrainer(object):
         """
         import torch
         import json
-        from verl.utils.reward_score.vrag import (
+        from verl.utils.reward_score.mcite import (
             get_answer_from_predict_str,
             remove_text_between_tags,
             compute_comprehensive_evaluation,
@@ -1068,7 +1068,7 @@ class RayPPOTrainer(object):
         step_dir = os.path.join(self.config.trainer.default_local_dir, f'global_step_{self.global_steps}')
         validation_log_path = os.path.join(step_dir, 'validation_log.jsonl')
         
-        # 保存推理结果文件（格式与inference_vrag_20251129.py一致，可用evaluate_inference.py评测）
+        # 保存推理结果文件（格式与inference_wiki_visa.py一致，可用evaluate_inference.py评测）
         inference_results_path = os.path.join(step_dir, 'validation_inference_results.jsonl')
         
         # Create directory if it doesn't exist
@@ -1279,7 +1279,7 @@ class RayPPOTrainer(object):
                             response_str, ground_truth, eval_extra_info
                         )
                         # -------- bbox_reward 汇总 --------
-                        from verl.utils.reward_score.vrag import evaluate_bbox_reward
+                        from verl.utils.reward_score.mcite import evaluate_bbox_reward
                         bbox_reward_val = evaluate_bbox_reward(response_str, eval_extra_info)
                         if bbox_reward_val is not None:
                             all_bbox_rewards.append(bbox_reward_val)
@@ -1341,7 +1341,7 @@ class RayPPOTrainer(object):
                             f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
                             f.flush()  # 立即刷新到磁盘
                         
-                        # 保存推理结果（格式与inference_vrag_20251129.py一致，可用evaluate_inference.py评测）
+                        # 保存推理结果（格式与inference_wiki_visa.py一致，可用evaluate_inference.py评测）
                         try:
                             # 获取uid
                             uid = data_item.non_tensor_batch.get('uid', f'sample_{i}')
@@ -1422,7 +1422,7 @@ class RayPPOTrainer(object):
                             # 转换citation坐标到检索图像坐标系
                             if citation_original is not None:
                                 try:
-                                    from verl.utils.reward_score.vrag import (
+                                    from verl.utils.reward_score.mcite import (
                                         build_crop_chain_from_extra_info,
                                         convert_crop_coords_to_search_image
                                     )
@@ -1451,7 +1451,7 @@ class RayPPOTrainer(object):
                                         # 调试信息：打印转换结果（仅在IoU较低时）
                                         if gt_citation is not None:
                                             try:
-                                                from verl.utils.reward_score.vrag import calculate_iou
+                                                from verl.utils.reward_score.mcite import calculate_iou
                                                 if isinstance(gt_citation, str):
                                                     import ast
                                                     gt_citation_parsed = ast.literal_eval(gt_citation)
@@ -1480,7 +1480,7 @@ class RayPPOTrainer(object):
                                 except:
                                     reference_page = [reference_page] if reference_page is not None else None
                             
-                            # 构建推理结果（格式与inference_vrag_20251129.py一致）
+                            # 构建推理结果（格式与inference_wiki_visa.py一致）
                             inference_result = {
                                 'uid': str(uid),
                                 'query': question,

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from verl import DataProto
-from verl.utils.reward_score import _default_compute_score, vrag
+from verl.utils.reward_score import _default_compute_score, mcite
 import verl.utils.relevance_score as rs
 import torch
 import json
@@ -169,11 +169,11 @@ def compute_bbox_feedback_value(response_str: str,
     if predicted_bbox is None:
         return None
     try:
-        crop_chain = vrag.build_crop_chain_from_extra_info(retrievaled_images, crop_history)
-        converted_pred_bbox = vrag.convert_crop_coords_to_search_image(predicted_bbox, crop_chain)
+        crop_chain = mcite.build_crop_chain_from_extra_info(retrievaled_images, crop_history)
+        converted_pred_bbox = mcite.convert_crop_coords_to_search_image(predicted_bbox, crop_chain)
         if converted_pred_bbox is None or len(converted_pred_bbox) != 4:
             return None
-        return vrag.calculate_bbox_reward(converted_pred_bbox, gt_bbox)
+        return mcite.calculate_bbox_reward(converted_pred_bbox, gt_bbox)
     except Exception as e:
         print(f"[RM Debug] Failed to compute bbox feedback: {e}")
         return None
@@ -419,7 +419,7 @@ class RMManager:
         # This keeps refusal-related metrics visible in training logs.
         # ------------------------------------------------------------
         try:
-            from verl.utils.reward_score import vrag
+            from verl.utils.reward_score import mcite
             metrics_enabled = os.environ.get("REFUSAL_METRICS_ENABLED", "1").lower() in ("1", "true", "yes", "y")
             if metrics_enabled:
                 # Collect per-sample info first; judge refusals concurrently to speed up evaluation.
@@ -443,7 +443,7 @@ class RMManager:
 
                     search_correct = False
                     try:
-                        search_correct = vrag.evaluate_search_correctness(extra_info or {}, retrievaled_images)
+                        search_correct = mcite.evaluate_search_correctness(extra_info or {}, retrievaled_images)
                     except Exception:
                         search_correct = False
 
@@ -642,7 +642,7 @@ class RMManager:
                 has_citation = bool(citation_pattern.search(response_str))
 
                 # ========== 统一计算：search_correct / ndcg / citation_iou / bbox_reward ==========
-                from verl.utils.reward_score import vrag
+                from verl.utils.reward_score import mcite
                 retrievaled_images = data_item.non_tensor_batch.get('retrievaled_images', [])
                 crop_history = data_item.non_tensor_batch.get('crop_history', [])
 
@@ -669,7 +669,7 @@ class RMManager:
                 # Search correctness: required for conditional refusal mode.
                 search_correct = False
                 try:
-                    search_correct = vrag.evaluate_search_correctness(extra_info or {}, retrievaled_images)
+                    search_correct = mcite.evaluate_search_correctness(extra_info or {}, retrievaled_images)
                 except Exception as e:
                     print(f"[RM] Warning: Failed to evaluate search correctness: {e}")
                     search_correct = False
@@ -738,7 +738,7 @@ class RMManager:
                 citation_iou_value = 0.0
                 if extra_info:
                     try:
-                        citation_iou_value = vrag.evaluate_citation_iou(
+                        citation_iou_value = mcite.evaluate_citation_iou(
                             response_str, extra_info, retrievaled_images, crop_history
                         )
                     except Exception as e:
@@ -749,7 +749,7 @@ class RMManager:
                 bbox_reward_value = 0.0
                 if extra_info:
                     try:
-                        bbox_reward_value = vrag.evaluate_bbox_reward(
+                        bbox_reward_value = mcite.evaluate_bbox_reward(
                             response_str, extra_info, retrievaled_images, crop_history
                         )
                     except Exception as e:
@@ -766,7 +766,7 @@ class RMManager:
                 # ------------------------------------------------------------
                 if reward_mode == "search-r1":
                     try:
-                        score = float(vrag.compute_answer_acc(response_str, ground_truth, extra_info))
+                        score = float(mcite.compute_answer_acc(response_str, ground_truth, extra_info))
                     except Exception as e:
                         print(f"[RM] Warning: search-r1 compute_answer_acc failed: {e}")
                         score = 0.0
