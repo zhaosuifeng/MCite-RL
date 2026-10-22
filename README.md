@@ -36,16 +36,6 @@ Use an index built with the same retrieval encoder:
   --host 127.0.0.1 --port 8002
 ```
 
-For FinRAGBench, use the dataset-specific API:
-
-```bash
-"$INFER_PY" -m search_engine.search_engine_api_finragbench \
-  --metadata /path/to/annotations.json \
-  --index_dir /path/to/finragbench-index --image_root /path/to/finragbench-images \
-  --embed_model_name "$EMBED_MODEL_PATH" \
-  --host 127.0.0.1 --port 8005
-```
-
 Index builders are available in `search_engine/ingestion.py` and `search_engine/ingestion_finragbench.py`. Use the appropriate corpus for training or evaluation.
 
 ## 3. Run Inference
@@ -68,7 +58,7 @@ Then run multi-turn inference:
   --max_samples 5 --max_iterations 5 --temperature 0
 ```
 
-Remove `--max_samples 5` to process all samples. For FinRAGBench, point `--search_url` to port `8005`. Normalize your data to the format shown in `data/examples`; register reward handling for new training task identifiers as needed.
+Remove `--max_samples 5` to process all samples. Normalize your data to the format shown in `data/examples`; register reward handling for new training task identifiers as needed.
 
 ## 4. Run Training
 
